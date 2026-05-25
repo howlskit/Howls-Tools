@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Atlas</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#b8860b;--gold-light:#d4a017;--gold-pale:#e8c96a;
+  --ink:#1c1009;--aged:#a08050;--border-col:#7a5c2a;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{
+  background:#0a0805;
+  background-image:
+    radial-gradient(ellipse at 30% 20%,rgba(184,134,11,.06) 0%,transparent 50%),
+    radial-gradient(ellipse at 70% 80%,rgba(139,26,26,.05) 0%,transparent 40%);
+  font-family:'Crimson Text',serif;color:#e8d9b0;
+  display:flex;flex-direction:column;
+}
+#app-header{
+  background:linear-gradient(180deg,#0d0a06,#110d07);
+  border-bottom:1px solid var(--border-col);
+  padding:0 1.8rem;height:58px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;position:relative;z-index:60;
+}
+#app-header::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),var(--gold-light),var(--gold),transparent);opacity:.5;}
+.app-title{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,2.2vw,1.4rem);color:var(--gold-pale);letter-spacing:.08em;text-shadow:0 0 28px rgba(184,134,11,.45);white-space:nowrap;}
+.load-btn{font-family:'Cinzel',serif;font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:.42rem 1.1rem;border-radius:2px;cursor:pointer;border:1px solid var(--border-col);background:transparent;color:var(--gold);transition:all .2s;white-space:nowrap;}
+.load-btn:hover{background:rgba(184,134,11,.12);border-color:var(--gold);box-shadow:0 0 10px rgba(184,134,11,.15);}
+#breadcrumb-bar{background:linear-gradient(90deg,#0d0a06,#150f08,#0d0a06);border-bottom:1px solid rgba(122,92,42,.4);padding:.38rem 1.8rem;display:flex;align-items:center;flex-shrink:0;min-height:32px;overflow-x:auto;}
+.bc-item{font-family:'Cinzel',serif;font-size:.64rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--aged);cursor:pointer;padding:.1rem .45rem;border-radius:2px;transition:color .2s;white-space:nowrap;}
+.bc-item:hover{color:var(--gold-pale);}
+.bc-item.current{color:var(--gold-pale);cursor:default;}
+.bc-sep{color:var(--border-col);font-size:.7rem;padding:0 .15rem;}
+#map-stage{flex:1;position:relative;overflow:hidden;background:#070503;background-image:repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(122,92,42,.04) 40px,rgba(122,92,42,.04) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(122,92,42,.04) 40px,rgba(122,92,42,.04) 41px);cursor:default;}
+#map-viewport{position:absolute;top:0;left:0;transform-origin:0 0;}
+#map-wrapper{position:relative;display:inline-block;box-shadow:0 0 60px rgba(0,0,0,.8),0 0 120px rgba(0,0,0,.4);}
+#map-wrapper::before{content:'';position:absolute;inset:-5px;border:2px solid var(--border-col);pointer-events:none;z-index:30;}
+#map-img{display:block;user-select:none;-webkit-user-drag:none;max-width:none;}
+#overlay-canvas{position:absolute;top:0;left:0;pointer-events:none;z-index:15;}
+#hit-canvas{position:absolute;top:0;left:0;opacity:0;z-index:20;cursor:default;}
+#zoom-controls{position:absolute;top:.8rem;right:.8rem;z-index:50;display:flex;flex-direction:column;gap:.3rem;}
+.zoom-btn{width:30px;height:30px;border-radius:2px;border:1px solid var(--border-col);background:rgba(10,8,5,.9);color:var(--gold);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.zoom-btn:hover{border-color:var(--gold);background:rgba(184,134,11,.15);}
+#zoom-pct{font-family:'Cinzel',serif;font-size:.52rem;color:var(--aged);text-align:center;}
+#hs-tooltip{position:absolute;pointer-events:none;z-index:100;background:linear-gradient(135deg,#1a1208,#0d0a06);border:1px solid var(--gold);border-radius:2px;padding:.5rem 1rem;box-shadow:0 4px 20px rgba(0,0,0,.7),0 0 16px rgba(184,134,11,.2);opacity:0;transition:opacity .15s;max-width:200px;}
+#hs-tooltip.visible{opacity:1;}
+.tip-name{font-family:'Cinzel',serif;font-size:.8rem;font-weight:700;color:var(--gold-pale);letter-spacing:.06em;}
+.tip-hint{font-family:'Crimson Text',serif;font-style:italic;font-size:.78rem;color:var(--aged);margin-top:.15rem;}
+#empty-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
+.empty-glyph{font-size:3.5rem;opacity:.07;}
+.empty-title{font-family:'Cinzel Decorative',serif;font-size:1rem;color:rgba(184,134,11,.25);letter-spacing:.12em;}
+.empty-sub{font-family:'Crimson Text',serif;font-style:italic;color:rgba(184,134,11,.18);font-size:.9rem;}
+.empty-load-btn{font-family:'Cinzel',serif;font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:.45rem 1.2rem;border-radius:2px;cursor:pointer;border:none;background:linear-gradient(135deg,var(--gold),#a07820);color:var(--ink);box-shadow:0 2px 10px rgba(184,134,11,.3);transition:all .2s;margin-top:.4rem;}
+.empty-load-btn:hover{background:linear-gradient(135deg,var(--gold-pale),var(--gold));transform:translateY(-1px);}
+#map-transition{position:absolute;inset:0;background:rgba(5,3,2,0);z-index:60;pointer-events:none;transition:background .4s;}
+#map-transition.fade{background:rgba(5,3,2,1);}
+#status-bar{background:#0a0805;border-top:1px solid rgba(122,92,42,.2);padding:.15rem 1.8rem;display:flex;align-items:center;gap:.8rem;flex-shrink:0;height:22px;}
+.status-dot{width:4px;height:4px;border-radius:50%;background:var(--gold);opacity:.4;}
+.status-txt{font-family:'Crimson Text',serif;font-style:italic;font-size:.75rem;color:rgba(160,128,80,.5);}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:#0a0805;}
+::-webkit-scrollbar-thumb{background:var(--border-col);border-radius:2px;}
+#importInput{display:none;}
+
+/* Loading indicator */
+#loading-bar{
+  position:absolute;bottom:0;left:0;height:2px;width:0%;
+  background:linear-gradient(90deg,var(--gold),var(--gold-light));
+  z-index:200;transition:width .3s,opacity .4s;pointer-events:none;
+}
+#loading-label{
+  position:absolute;bottom:28px;left:50%;transform:translateX(-50%);
+  font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--aged);background:rgba(10,8,5,.85);padding:.3rem .7rem;border-radius:2px;
+  border:1px solid rgba(122,92,42,.4);opacity:0;transition:opacity .3s;pointer-events:none;
+  white-space:nowrap;
+}
+</style>
+</head>
+<body>
+
+<header id="app-header">
+  <div class="app-title">⚔ World Atlas</div>
+  <button class="load-btn" onclick="document.getElementById('importInput').click()">↑ Load World</button>
+</header>
+
+<div id="breadcrumb-bar"><span class="bc-item current">World</span></div>
+
+<div id="map-stage">
+  <div id="empty-state">
+    <div class="empty-glyph">🗺</div>
+    <div class="empty-title">No World Loaded</div>
+    <div class="empty-sub">Ask your DM for the world file.</div>
+    <button class="empty-load-btn" onclick="document.getElementById('importInput').click()">Load World File</button>
+  </div>
+
+  <div id="map-viewport" style="display:none;">
+    <div id="map-wrapper">
+      <img id="map-img" src="" alt="Map" draggable="false">
+      <canvas id="overlay-canvas"></canvas>
+      <canvas id="hit-canvas"></canvas>
+      <div id="map-transition"></div>
+    </div>
+  </div>
+
+  <div id="zoom-controls" style="display:none;">
+    <button class="zoom-btn" onclick="adjustZoom(1.3)">＋</button>
+    <div id="zoom-pct">100%</div>
+    <button class="zoom-btn" onclick="adjustZoom(1/1.3)">－</button>
+    <button class="zoom-btn" onclick="fitToScreen()" style="font-size:.52rem;letter-spacing:0;">FIT</button>
+  </div>
+
+  <div id="hs-tooltip">
+    <div class="tip-name" id="tooltip-name"></div>
+    <div class="tip-hint" id="tooltip-hint"></div>
+  </div>
+
+  <!-- loading feedback -->
+  <div id="loading-bar"></div>
+  <div id="loading-label"></div>
+</div>
+
+<div id="status-bar">
+  <div class="status-dot"></div>
+  <div class="status-txt" id="status-txt">Awaiting world file</div>
+</div>
+
+<input type="file" id="importInput" accept=".json" onchange="loadWorld(event)">
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  WORLD ATLAS — Player View  (zero-lag pre-baked overlays)
+//
+//  Key performance architecture:
+//  • rebuildCache() runs ONCE after a map loads.
+//    It decodes every mask PNG, builds a pixel alpha lookup array
+//    (for hit-testing) AND paints a pre-tinted, pre-bordered canvas
+//    (the "baked overlay") for every hotspot.
+//  • handleHover() on every mousemove just does:
+//      ctx.clearRect + ctx.drawImage(bakedCanvas)  ← two calls, no alloc
+//  • No Image() objects, no canvas allocation, no compositing on hover.
+// ══════════════════════════════════════════════════════════════════
+
+// ── Color system (must match DM tool) ──
+function hexToColorEntry(hex){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return { hex, fill:[r,g,b], border:[Math.round(r*.55),Math.round(g*.55),Math.round(b*.55)] };
+}
+const PRESET_COLORS=[
+  {id:'gold',hex:'#d4a017'},{id:'blood',hex:'#c04040'},{id:'teal',hex:'#40c0a0'},
+  {id:'violet',hex:'#a060d0'},{id:'silver',hex:'#b0b0c8'},{id:'green',hex:'#5ab050'},
+  {id:'orange',hex:'#e07830'},{id:'cyan',hex:'#30c0e0'},{id:'pink',hex:'#d060a0'},
+  {id:'lime',hex:'#a0d040'},
+];
+function colorById(id){
+  if(!id) return hexToColorEntry('#d4a017');
+  if(id.startsWith('#')) return hexToColorEntry(id);
+  const p=PRESET_COLORS.find(c=>c.id===id);
+  return hexToColorEntry(p?p.hex:'#d4a017');
+}
+
+// ── State ──
+let world={maps:{},rootMapId:null};
+let navStack=[], currentMapId=null;
+let zoom=1, panX=0, panY=0;
+let isPanning=false, panStart=null, spaceHeld=false;
+const MIN_Z=0.08, MAX_Z=10;
+let imgNW=0, imgNH=0;
+let hoveredHs=null;
+
+// Per-hotspot caches (rebuilt when map changes)
+// maskAlpha[id]  = Uint8Array  — one byte per pixel, alpha of painted mask
+// bakedOverlay[id] = HTMLCanvasElement — pre-tinted fill + border, ready to blit
+let maskAlpha={};
+let bakedOverlay={};
+
+// ── Helpers ──
+function ss(id){return document.getElementById(id);}
+function setStatus(t){ss('status-txt').textContent=t;}
+function currentMap(){return world.maps[currentMapId]||null;}
+
+// ══════════════════════════════
+//  INIT
+// ══════════════════════════════
+function init(){
+  setupEvents();
+}
+
+// ══════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════
+function navigateTo(mapId,push=true){
+  if(push) navStack.push(mapId);
+  currentMapId=mapId;
+  hoveredHs=null;
+  const m=currentMap();
+  if(m) loadMapImage(m.imageData,true);
+  else showEmpty();
+  renderBreadcrumb();
+}
+
+function navigateBack(idx){
+  navStack=navStack.slice(0,idx+1);
+  currentMapId=navStack[navStack.length-1]||null;
+  hoveredHs=null;
+  const m=currentMap();
+  if(m) loadMapImage(m.imageData,true);
+  else showEmpty();
+  renderBreadcrumb();
+}
+
+// ══════════════════════════════
+//  BREADCRUMB
+// ══════════════════════════════
+function renderBreadcrumb(){
+  const bar=ss('breadcrumb-bar');
+  bar.innerHTML='';
+  if(!navStack.length){bar.innerHTML='<span class="bc-item current">World</span>';return;}
+  navStack.forEach((mid,i)=>{
+    if(i>0){const sep=document.createElement('span');sep.className='bc-sep';sep.textContent='›';bar.appendChild(sep);}
+    const m=world.maps[mid];
+    const el=document.createElement('span');
+    el.className='bc-item'+(i===navStack.length-1?' current':'');
+    el.textContent=m?m.name:'Map';
+    if(i<navStack.length-1) el.onclick=()=>navigateBack(i);
+    bar.appendChild(el);
+  });
+}
+
+// ══════════════════════════════
+//  MAP IMAGE LOADING
+// ══════════════════════════════
+function loadMapImage(src,andFit){
+  const img=ss('map-img');
+  img.onload=()=>{
+    imgNW=img.naturalWidth; imgNH=img.naturalHeight;
+    img.style.width=imgNW+'px'; img.style.height=imgNH+'px';
+    ['overlay-canvas','hit-canvas'].forEach(cid=>{
+      const c=ss(cid);
+      c.width=imgNW; c.height=imgNH;
+      c.style.width=imgNW+'px'; c.style.height=imgNH+'px';
+    });
+    ss('map-transition').style.width=imgNW+'px';
+    ss('map-transition').style.height=imgNH+'px';
+    clearOverlay();
+    if(andFit) fitToScreen();
+    // Rebuild cache AFTER image is sized — shows loading feedback
+    rebuildCache();
+  };
+  img.src=src;
+  ss('map-viewport').style.display='';
+  ss('empty-state').style.display='none';
+  ss('zoom-controls').style.display='';
+}
+
+function showEmpty(){
+  ss('map-viewport').style.display='none';
+  ss('empty-state').style.display='flex';
+  ss('zoom-controls').style.display='none';
+}
+
+function clearOverlay(){
+  const oc=ss('overlay-canvas');
+  if(oc&&oc.width) oc.getContext('2d').clearRect(0,0,oc.width,oc.height);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PRE-BAKED CACHE
+//  Runs once per map. For each hotspot it:
+//   1. Decodes the mask PNG into an ImageData → extracts alpha array
+//   2. Builds a pre-tinted HTMLCanvasElement (fill + border outline)
+//  Both are stored in maskAlpha[id] and bakedOverlay[id].
+//  Hover is then a single drawImage() call — zero allocation per frame.
+// ══════════════════════════════════════════════════════════════════
+function rebuildCache(){
+  maskAlpha={};
+  bakedOverlay={};
+  const m=currentMap(); if(!m||!m.hotspots.length) return;
+
+  const total=m.hotspots.length;
+  let done=0;
+
+  // Show progress
+  showLoading('Preparing regions…',0);
+
+  m.hotspots.forEach(hs=>{
+    if(!hs.maskData){ done++; updateLoading(done/total); return; }
+
+    const img=new Image();
+    img.onload=()=>{
+      // ── Step 1: decode pixels into a flat canvas ──
+      const rawC=document.createElement('canvas');
+      rawC.width=imgNW; rawC.height=imgNH;
+      const rawX=rawC.getContext('2d');
+      rawX.drawImage(img,0,0);
+      const rawD=rawX.getImageData(0,0,imgNW,imgNH).data;
+
+      // Alpha lookup for hit-testing (1 byte per pixel)
+      const alpha=new Uint8Array(imgNW*imgNH);
+      for(let i=0;i<imgNW*imgNH;i++) alpha[i]=rawD[i*4+3];
+      maskAlpha[hs.id]=alpha;
+
+      // ── Step 2: bake the colored overlay canvas ──
+      const col=colorById(hs.colorId);
+      const baked=bakeMaskOverlay(rawC, col);
+      bakedOverlay[hs.id]=baked;
+
+      done++;
+      updateLoading(done/total);
+      if(done===total) hideLoading();
+    };
+    img.onerror=()=>{ done++; updateLoading(done/total); if(done===total) hideLoading(); };
+    img.src=hs.maskData;
+  });
+}
+
+/**
+ * Given a raw mask canvas (white-on-transparent) and a color entry,
+ * return a new canvas with:
+ *   • fill layer  — tinted with col.fill at 50% opacity
+ *   • border ring — tinted with col.border, slightly brighter
+ * This canvas is blitted directly during hover — no per-frame work.
+ */
+function bakeMaskOverlay(rawC, col){
+  const W=imgNW, H=imgNH;
+  const out=document.createElement('canvas');
+  out.width=W; out.height=H;
+  const ox=out.getContext('2d');
+
+  const [fr,fg,fb]=col.fill;
+  const [br,bg,bb]=col.border;
+
+  // ── Fill layer ──
+  // Tint: draw raw mask, then flood with fill color using source-in
+  const fillC=document.createElement('canvas'); fillC.width=W; fillC.height=H;
+  const fx=fillC.getContext('2d');
+  fx.drawImage(rawC,0,0);
+  fx.globalCompositeOperation='source-in';
+  fx.fillStyle=`rgb(${fr},${fg},${fb})`;
+  fx.fillRect(0,0,W,H);
+
+  ox.globalAlpha=0.50;
+  ox.drawImage(fillC,0,0);
+  ox.globalAlpha=1;
+
+  // ── Border ring ──
+  // Technique: draw mask with outward shadow blur → knock out interior → tint
+  const brdC=document.createElement('canvas'); brdC.width=W; brdC.height=H;
+  const bx=brdC.getContext('2d');
+  // Multiple shadow passes build up a solid ring outside the shape
+  for(let sp=2;sp<=8;sp+=2){
+    bx.shadowBlur=sp;
+    bx.shadowColor='white';
+    bx.drawImage(rawC,0,0);
+  }
+  // Remove interior — only the outward shadow ring remains
+  bx.globalCompositeOperation='destination-out';
+  bx.shadowBlur=0;
+  bx.drawImage(rawC,0,0);
+  // Color the ring
+  bx.globalCompositeOperation='source-in';
+  bx.fillStyle=`rgb(${br},${bg},${bb})`;
+  bx.fillRect(0,0,W,H);
+
+  ox.globalAlpha=Math.min(1,0.50*1.6);
+  ox.drawImage(brdC,0,0);
+  ox.globalAlpha=1;
+
+  return out;
+}
+
+// ── Loading feedback ──
+function showLoading(msg,pct){
+  const lb=ss('loading-label'), bar=ss('loading-bar');
+  lb.textContent=msg; lb.style.opacity='1';
+  bar.style.width=(pct*100)+'%'; bar.style.opacity='1';
+}
+function updateLoading(pct){
+  ss('loading-bar').style.width=Math.round(pct*100)+'%';
+}
+function hideLoading(){
+  const lb=ss('loading-label'), bar=ss('loading-bar');
+  lb.style.opacity='0';
+  bar.style.width='100%';
+  setTimeout(()=>{ bar.style.opacity='0'; bar.style.width='0%'; },400);
+  setStatus('Ready — '+Object.values(maskAlpha).filter(Boolean).length+' region(s) loaded');
+}
+
+// ══════════════════════════════
+//  HIT TESTING
+// ══════════════════════════════
+function hitTestHotspot(ix,iy){
+  const m=currentMap(); if(!m) return null;
+  const px=Math.round(ix), py=Math.round(iy);
+  if(px<0||py<0||px>=imgNW||py>=imgNH) return null;
+  const idx=py*imgNW+px;
+  for(let i=m.hotspots.length-1;i>=0;i--){
+    const hs=m.hotspots[i];
+    const a=maskAlpha[hs.id];
+    if(a&&a[idx]>20) return hs;
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  HOVER — single drawImage per frame, pre-baked canvas
+// ══════════════════════════════════════════════════════════════════
+function handleHover(ix,iy,pointerEv){
+  const hs=hitTestHotspot(ix,iy);
+
+  if(hs!==hoveredHs){
+    hoveredHs=hs;
+    // ── INSTANT: clear + one drawImage (no allocation, no decode) ──
+    const oc=ss('overlay-canvas');
+    const ctx=oc.getContext('2d');
+    ctx.clearRect(0,0,oc.width,oc.height);
+    if(hs){
+      const baked=bakedOverlay[hs.id];
+      if(baked) ctx.drawImage(baked,0,0);
+    }
+    ss('hit-canvas').style.cursor=hs&&hs.childMapId?'pointer':'default';
+  }
+
+  if(hs){
+    const tt=ss('hs-tooltip');
+    ss('tooltip-name').textContent=hs.name;
+    ss('tooltip-hint').textContent=hs.childMapId?'▶ Click to explore':'';
+    tt.classList.add('visible');
+    const sr=ss('map-stage').getBoundingClientRect();
+    let tx=pointerEv.clientX-sr.left+16, ty=pointerEv.clientY-sr.top+16;
+    if(tx+200>sr.width)  tx=pointerEv.clientX-sr.left-210;
+    if(ty+72 >sr.height) ty=pointerEv.clientY-sr.top-72;
+    tt.style.left=tx+'px'; tt.style.top=ty+'px';
+  } else {
+    ss('hs-tooltip').classList.remove('visible');
+  }
+}
+
+// ══════════════════════════════
+//  CLICK
+// ══════════════════════════════
+function handleClick(ix,iy){
+  const hs=hitTestHotspot(ix,iy);
+  if(!hs||!hs.childMapId) return;
+  const trans=ss('map-transition');
+  trans.classList.add('fade');
+  setTimeout(()=>{
+    navigateTo(hs.childMapId);
+    setTimeout(()=>trans.classList.remove('fade'),60);
+  },380);
+}
+
+// ══════════════════════════════
+//  ZOOM / PAN
+// ══════════════════════════════
+function applyTransform(){
+  ss('map-viewport').style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`;
+  ss('zoom-pct').textContent=Math.round(zoom*100)+'%';
+}
+
+function fitToScreen(){
+  const stage=ss('map-stage');
+  if(!imgNW||!imgNH){zoom=1;panX=0;panY=0;applyTransform();return;}
+  const z=Math.min((stage.clientWidth-40)/imgNW,(stage.clientHeight-40)/imgNH,1);
+  zoom=z;
+  panX=(stage.clientWidth -imgNW*z)/2;
+  panY=(stage.clientHeight-imgNH*z)/2;
+  applyTransform();
+}
+
+function adjustZoom(factor,cx,cy){
+  const stage=ss('map-stage').getBoundingClientRect();
+  const ox=cx!==undefined?cx:stage.width/2;
+  const oy=cy!==undefined?cy:stage.height/2;
+  const nz=Math.min(MAX_Z,Math.max(MIN_Z,zoom*factor));
+  panX=ox-(ox-panX)*(nz/zoom);
+  panY=oy-(oy-panY)*(nz/zoom);
+  zoom=nz;
+  applyTransform();
+}
+
+// ══════════════════════════════
+//  EVENTS
+// ══════════════════════════════
+function setupEvents(){
+  const stage=ss('map-stage');
+  const hitC=ss('hit-canvas');
+
+  // Wheel zoom (stage + hit canvas)
+  [stage, hitC].forEach(el=>{
+    el.addEventListener('wheel',e=>{
+      e.preventDefault();
+      const r=stage.getBoundingClientRect();
+      adjustZoom(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);
+    },{passive:false});
+  });
+
+  hitC.addEventListener('pointerdown',e=>{
+    if(e.button===1||(e.button===0&&spaceHeld)){
+      isPanning=true;
+      panStart={x:e.clientX-panX,y:e.clientY-panY};
+      hitC.style.cursor='grabbing';
+      e.preventDefault();
+    }
+  });
+
+  hitC.addEventListener('pointermove',e=>{
+    if(isPanning){panX=e.clientX-panStart.x;panY=e.clientY-panStart.y;applyTransform();return;}
+    const pt=hitToImage(e);
+    handleHover(pt.x,pt.y,e);
+  });
+
+  hitC.addEventListener('pointerup',e=>{
+    if(isPanning){isPanning=false;hitC.style.cursor='default';return;}
+    const pt=hitToImage(e);
+    handleClick(pt.x,pt.y);
+  });
+
+  hitC.addEventListener('pointerleave',()=>{
+    isPanning=false;
+    hoveredHs=null;
+    clearOverlay();
+    ss('hs-tooltip').classList.remove('visible');
+  });
+
+  // Pan on stage background
+  stage.addEventListener('pointerdown',e=>{
+    if(e.target!==stage) return;
+    if(e.button===1||(e.button===0&&spaceHeld)){
+      isPanning=true;
+      panStart={x:e.clientX-panX,y:e.clientY-panY};
+      stage.style.cursor='grabbing';
+    }
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(!isPanning||e.target!==stage) return;
+    panX=e.clientX-panStart.x;panY=e.clientY-panStart.y;applyTransform();
+  });
+  stage.addEventListener('pointerup',()=>{isPanning=false;stage.style.cursor='default';});
+
+  document.addEventListener('keydown',ev=>{
+    if(ev.code==='Space'){spaceHeld=true;ss('hit-canvas').style.cursor='grab';ev.preventDefault();}
+    if(ev.key==='+'||ev.key==='=') adjustZoom(1.2);
+    if(ev.key==='-') adjustZoom(1/1.2);
+  });
+  document.addEventListener('keyup',ev=>{
+    if(ev.code==='Space'){spaceHeld=false;ss('hit-canvas').style.cursor='default';}
+  });
+
+  window.addEventListener('resize',()=>{if(imgNW) fitToScreen();});
+}
+
+function hitToImage(e){
+  const stage=ss('map-stage').getBoundingClientRect();
+  return{x:(e.clientX-stage.left-panX)/zoom,y:(e.clientY-stage.top-panY)/zoom};
+}
+
+// ══════════════════════════════
+//  LOAD WORLD
+// ══════════════════════════════
+function loadWorld(e){
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(!d.world||!d.world.maps) throw new Error();
+      world=d.world;
+      const rootId=world.rootMapId||Object.keys(world.maps)[0]||null;
+      navStack=rootId?[rootId]:[];
+      currentMapId=rootId;
+      hoveredHs=null;
+      maskAlpha={}; bakedOverlay={};
+      renderBreadcrumb();
+      const m=currentMap();
+      if(m) loadMapImage(m.imageData,true); else showEmpty();
+    }catch(err){alert('Error: could not read world file.');}
+  };
+  r.readAsText(file); e.target.value='';
+}
+
+init();
+</script>
+</body>
+</html>
