@@ -587,40 +587,51 @@ function loadWorld(e){
 // =========================================================================
 //  INITIALIZATION & AUTOMATIC GITHUB FETCH
 // =========================================================================
+
+// Run your original initialization engine first
 init();
 
-window.addEventListener('DOMContentLoaded', () => {
-  fetch('map.json')
-    .then(response => {
-      if (!response.ok) throw new Error("map.json file not found in repository.");
-      return response.json();
-    })
-    .then(d => {
-      // Directly assign the data to the global world state just like the FileReader does
-      if (d.world && d.world.maps) {
-        world = d.world;
-        const rootId = world.rootMapId || Object.keys(world.maps)[0] || null;
-        navStack = rootId ? [rootId] : [];
-        currentMapId = rootId;
-        hoveredHs = null;
-        maskAlpha = {}; bakedOverlay = {};
-        
-        renderBreadcrumb();
-        const m = currentMap();
-        
-        // Fire off your map rendering engine
-        if (m) {
-          loadMapImage(m.imageData, true);
-        } else {
-          showEmpty();
-        }
-        console.log("Database synchronized: map.json loaded seamlessly.");
-      }
-    })
-    .catch(err => {
-      console.warn("Auto-load bypassed. Ready for manual import. Profile:", err.message);
-    });
-});
+// Immediately trigger the automatic repository fetch
+console.log("Attempting to auto-load map.json from repository root...");
+
+fetch('map.json')
+  .then(response => {
+    if (!response.ok) {
+      throw new Error("HTTP Error " + response.status + " - Check if map.json exists and is named correctly.");
+    }
+    return response.json();
+  })
+  .then(d => {
+    // Structural integrity check matching your loadWorld validation
+    if (!d || !d.world || !d.world.maps) {
+      throw new Error("The map.json file loaded, but the internal data structure is invalid or missing the 'world' object.");
+    }
+    
+    // Inject the data directly into the application state
+    world = d.world;
+    const rootId = world.rootMapId || Object.keys(world.maps)[0] || null;
+    navStack = rootId ? [rootId] : [];
+    currentMapId = rootId;
+    hoveredHs = null;
+    maskAlpha = {}; 
+    bakedOverlay = {};
+    
+    // Fire the visual rendering sequences
+    renderBreadcrumb();
+    const m = currentMap();
+    if (m) {
+      loadMapImage(m.imageData, true);
+      console.log("Success! Map data parsed and images projected.");
+    } else {
+      showEmpty();
+      console.warn("World data loaded, but no maps were found inside currentMap().");
+    }
+  })
+  .catch(err => {
+    // This will pop up on your screen to tell us exactly what went wrong!
+    console.error("Auto-load routine failed:", err.message);
+    alert("Map Auto-Load Diagnostic:\n" + err.message + "\n\n(Falling back to manual file upload mode.)");
+  });
 </script>
 </body>
 </html>
