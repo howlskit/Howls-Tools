@@ -560,9 +560,9 @@ function hitToImage(e){
   return{x:(e.clientX-stage.left-panX)/zoom,y:(e.clientY-stage.top-panY)/zoom};
 }
 
-// ══════════════════════════════
-//  LOAD WORLD
-// ══════════════════════════════
+// =========================================================================
+//  LOAD WORLD (Your original function, left untouched)
+// =========================================================================
 function loadWorld(e){
   const file=e.target.files[0]; if(!file) return;
   const r=new FileReader();
@@ -584,37 +584,41 @@ function loadWorld(e){
   r.readAsText(file); e.target.value='';
 }
 
+// =========================================================================
+//  INITIALIZATION & AUTOMATIC GITHUB FETCH
+// =========================================================================
 init();
 
-// ══════════════════════════════
-// NEW AUTOMATIC FETCH LOGIC
-// ══════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
   fetch('map.json')
     .then(response => {
-      if (!response.ok) throw new Error("Could not locate default map.json file.");
+      if (!response.ok) throw new Error("map.json file not found in repository.");
       return response.json();
     })
     .then(d => {
-      // This mimics the exact data parsing structure from your loadWorld function
-      if (!d.world || !d.world.maps) throw new Error("Invalid world file structure.");
-      
-      world = d.world;
-      const rootId = world.rootMapId || Object.keys(world.maps)[0] || null;
-      navStack = rootId ? [rootId] : [];
-      currentMapId = rootId;
-      hoveredHs = null;
-      maskAlpha = {}; bakedOverlay = {};
-      
-      renderBreadcrumb();
-      const m = currentMap();
-      if (m) loadMapImage(m.imageData, true); else showEmpty();
-      
-      console.log("Campaign map synchronized perfectly from GitHub repository.");
+      // Directly assign the data to the global world state just like the FileReader does
+      if (d.world && d.world.maps) {
+        world = d.world;
+        const rootId = world.rootMapId || Object.keys(world.maps)[0] || null;
+        navStack = rootId ? [rootId] : [];
+        currentMapId = rootId;
+        hoveredHs = null;
+        maskAlpha = {}; bakedOverlay = {};
+        
+        renderBreadcrumb();
+        const m = currentMap();
+        
+        // Fire off your map rendering engine
+        if (m) {
+          loadMapImage(m.imageData, true);
+        } else {
+          showEmpty();
+        }
+        console.log("Database synchronized: map.json loaded seamlessly.");
+      }
     })
     .catch(err => {
-      console.warn("Auto-load skipped or failed:", err.message);
-      // Fails silently in console so the app still functions manually if map.json is missing
+      console.warn("Auto-load bypassed. Ready for manual import. Profile:", err.message);
     });
 });
 </script>
