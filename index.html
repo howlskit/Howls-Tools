@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Artisan's Ledger // TTRPG Utilities</title>
+    <style>
+        /* Import a clean, readable fantasy/serif font pair */
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Quicksand:wght@500;700&display=swap');
+
+        :root {
+            --bg-parchment: #f4edd9;
+            --border-dark: #4a3319;
+            --text-dark: #2c1e11;
+            --accent-gold: #b08224;
+            --accent-bg: #eddcb4;
+            
+            /* Gem Colors from your chart */
+            --gem-blue: #2557a7;
+            --gem-green: #278543;
+            --gem-amber: #d48a1d;
+        }
+
+        body {
+            background-color: #1a1510; /* Dark wood-like background contrast */
+            color: var(--text-dark);
+            font-family: 'Quicksand', sans-serif;
+            margin: 0;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Container mimicking the parchment scroll sheet */
+        .ledger-container {
+            background-color: var(--bg-parchment);
+            border: 4px double var(--border-dark);
+            border-radius: 8px;
+            max-width: 1000px;
+            width: 100%;
+            padding: 2.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Top Header Styling based on the image banner */
+        header {
+            text-align: center;
+            border-bottom: 3px solid var(--border-dark);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 2.2rem;
+            margin: 0 0 0.5rem 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dark);
+        }
+
+        .philosophy-banner {
+            background-color: var(--border-dark);
+            color: var(--bg-parchment);
+            font-family: 'Cinzel', serif;
+            font-size: 0.9rem;
+            padding: 0.4rem 2rem;
+            display: inline-block;
+            clip-path: polygon(5% 0%, 95% 0%, 100% 50%, 95% 100%, 5% 100%, 0% 50%);
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+        }
+
+        .tagline {
+            font-style: italic;
+            font-weight: 700;
+            max-width: 650px;
+            margin: 0 auto;
+            color: #5c4328;
+            line-height: 1.4;
+        }
+
+        /* Grid Table Header Row */
+        .grid-header {
+            display: grid;
+            grid-template-columns: 80px 1.5fr 2fr 120px;
+            background-color: var(--border-dark);
+            color: var(--bg-parchment);
+            font-family: 'Cinzel', serif;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 0.6rem 0;
+            border-radius: 4px 4px 0 0;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        /* Tool Matrix Grid Row Layout */
+        .tool-matrix {
+            display: flex;
+            flex-direction: column;
+            gap: 4px; /* Tiny gap mimicking row lines */
+            background-color: var(--border-dark);
+            border: 2px solid var(--border-dark);
+            border-radius: 0 0 4px 4px;
+            overflow: hidden;
+        }
+
+        .tool-row {
+            display: grid;
+            grid-template-columns: 80px 1.5fr 2fr 120px;
+            background-color: #fbf8f0;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+
+        .tool-row:hover {
+            background-color: #f4ecd4;
+        }
+
+        /* Column Specific Styling */
+        .col-icon {
+            text-align: center;
+            font-size: 2rem;
+            padding: 1rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--accent-bg);
+            height: 100%;
+            box-sizing: border-box;
+            border-right: 1px solid #dcd1b3;
+        }
+
+        .col-meta {
+            padding: 1rem;
+            border-right: 1px solid #e6dcbe;
+        }
+
+        .tool-title {
+            font-family: 'Cinzel', serif;
+            font-weight: 800;
+            font-size: 1.1rem;
+            margin: 0 0 0.2rem 0;
+            text-transform: uppercase;
+        }
+
+        .tool-tag {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #7a5e3d;
+        }
+
+        .col-desc {
+            padding: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            color: #3d2a18;
+            border-right: 1px solid #e6dcbe;
+        }
+
+        .col-action {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        /* Stylized Action Button matching the clean geometry layout */
+        .launch-btn {
+            display: inline-block;
+            background-color: var(--border-dark);
+            color: var(--bg-parchment);
+            text-decoration: none;
+            font-family: 'Cinzel', serif;
+            font-size: 0.8rem;
+            font-weight: bold;
+            padding: 0.5rem 0.8rem;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .launch-btn:hover {
+            background-color: var(--accent-gold);
+            color: white;
+            box-shadow: 0 2px 8px rgba(176, 130, 36, 0.4);
+        }
+
+        /* Footer / Disclaimer Taboo Bar matching the image bottom layout */
+        footer {
+            margin-top: 2.5rem;
+            border-top: 2px dashed var(--border-dark);
+            padding-top: 1.5rem;
+            text-align: center;
+        }
+
+        .footer-banner {
+            background-color: var(--accent-bg);
+            border: 1px solid var(--accent-gold);
+            padding: 0.8rem 1.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .warning-icon {
+            color: #b83b23;
+            font-size: 1.2rem;
+        }
+
+        /* Responsive stack for smaller tablet/mobile devices */
+        @media (max-width: 768px) {
+            .grid-header { display: none; }
+            .tool-row {
+                grid-template-columns: 1fr;
+                text-align: center;
+                border-bottom: 2px solid var(--border-dark);
+            }
+            .col-icon { border-right: none; border-bottom: 1px solid #dcd1b3; }
+            .col-meta { border-right: none; border-bottom: 1px solid #e6dcbe; }
+            .col-desc { border-right: none; border-bottom: 1px solid #e6dcbe; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ledger-container">
+        
+        <header>
+            <div class="philosophy-banner">The Storyteller's Architecture</div>
+            <h1>The Creator's Toolkit</h1>
+            <p class="tagline">
+                Precision utilities and systemic engines built for campaign coordination, character generation, structural world-building, and procedural brainstorming.
+            </p>
+        </header>
+
+        <div class="grid-header">
+            <div>Facet</div>
+            <div>Core Utility</div>
+            <div>Functional Purpose</div>
+            <div>Deployment</div>
+        </div>
+
+        <div class="tool-matrix">
+
+            <div class="tool-row">
+                <div class="col-icon" style="color: var(--gem-blue);">🔷</div>
+                <div class="col-meta">
+                    <h2 class="tool-title">World Atlas</h2>
+                    <span class="tool-tag">[ Structure / Flow ]</span>
+                </div>
+                <div class="col-desc">
+                    Interactive cartography interface used for region navigation, local settlement tracking, and macroscopic macro-management during live gameplay.
+                </div>
+                <div class="col-action">
+                    <a href="world-atlas.html" class="launch-btn">Initialize</a>
+                </div>
+            </div>
+
+            <div class="tool-row">
+                <div class="col-icon" style="color: var(--gem-green);">💚</div>
+                <div class="col-meta">
+                    <h2 class="tool-title">Character Smith</h2>
+                    <span class="tool-tag">[ Cohesion / Origin ]</span>
+                </div>
+                <div class="col-desc">
+                    Methodical framework configuration engine designed to generate systemic background tags, core identity nodes, and immediate developmental traits.
+                </div>
+                <div class="col-action">
+                    <a href="#" class="launch-btn" style="opacity: 0.5; pointer-events: none;">Locked</a>
+                </div>
+            </div>
+
+            <div class="tool-row">
+                <div class="col-icon" style="color: var(--gem-amber);">🔸</div>
+                <div class="col-meta">
+                    <h2 class="tool-title">Idea Engine</h2>
+                    <span class="tool-tag">[ Density / Prompts ]</span>
+                </div>
+                <div class="col-desc">
+                    Word generation matrix used to disperse prompt parameters, dissolve creative dead-ends, and construct high-yield thematic vocabulary strings.
+                </div>
+                <div class="col-action">
+                    <a href="#" class="launch-btn" style="opacity: 0.5; pointer-events: none;">Locked</a>
+                </div>
+            </div>
+
+        </div>
+
+        <footer>
+            <div class="footer-banner">
+                <span class="warning-icon">⚠️</span>
+                <span>System Directive: Tools are designed for flexible, system-agnostic distribution. Adjust parameters as required.</span>
+            </div>
+        </footer>
+
+    </div>
+
+</body>
+</html>
