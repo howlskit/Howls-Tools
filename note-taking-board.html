@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Player's Board</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Special+Elite&display=swap');
+
+  :root {
+    --parchment: #f5e6c8;
+    --parchment-dark: #e8d5a3;
+    --ink: #2c1810;
+    --red-string: #c0392b;
+    --toolbar-bg: rgba(22,10,3,0.95);
+    --toolbar-border: #6b4226;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    overflow: hidden;
+    width: 100vw; height: 100vh;
+    font-family: 'Special Elite', cursive;
+    user-select: none;
+    /* Stone dungeon wall */
+    background-color: #100c06;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0.12'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.65'/%3E%3C/svg%3E"),
+      repeating-linear-gradient(0deg, transparent, transparent 56px, rgba(0,0,0,0.22) 56px, rgba(0,0,0,0.22) 58px),
+      repeating-linear-gradient(90deg, transparent, transparent 76px, rgba(0,0,0,0.14) 76px, rgba(0,0,0,0.14) 78px);
+    background-size: 300px 300px, 100% 100%, 100% 100%;
+  }
+  /* Deep vignette */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(20,10,0,0.1) 20%, rgba(0,0,0,0.75) 100%);
+    pointer-events: none; z-index: 0;
+  }
+  /* Subtle torch-glow in corners */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 300px 300px at 0% 0%,   rgba(180,100,20,0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 300px 300px at 100% 0%,  rgba(180,100,20,0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 300px 300px at 0% 100%,  rgba(180,100,20,0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 300px 300px at 100% 100%,rgba(180,100,20,0.05) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Scene container ── */
+  #scene {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1;
+  }
+
+  /* ── Wooden frame shell ── */
+  #frame-shell {
+    position: relative;
+    /* Outer frame layers via box-shadow rings */
+    border-radius: 5px;
+    box-shadow:
+      0 0 0 22px #5c3412,
+      0 0 0 24px #3a1e06,
+      0 0 0 42px #7a4820,
+      0 0 0 44px #2e1508,
+      0 0 0 52px #5a3410,
+      0 0 0 54px #1c0c03,
+      0 12px 70px 54px rgba(0,0,0,0.8),
+      0  0px 40px 20px rgba(0,0,0,0.6);
+  }
+
+  /* Wood grain texture on the frame area */
+  #frame-shell::before {
+    content: '';
+    position: absolute;
+    inset: -54px;
+    border-radius: 8px;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='wg'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.015 0.7' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0.5'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23wg)' opacity='0.3'/%3E%3C/svg%3E"),
+      repeating-linear-gradient(90deg,
+        transparent, transparent 6px,
+        rgba(0,0,0,0.06) 6px, rgba(0,0,0,0.06) 7px
+      );
+    background-size: 400px 400px, 14px 100%;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* Gold corner bolts */
+  #frame-shell::after {
+    content: '';
+    position: absolute;
+    inset: -48px;
+    border-radius: 6px;
+    background:
+      radial-gradient(circle 9px at 48px 48px,             #e0b840 10%, #8b6010 60%, transparent 70%),
+      radial-gradient(circle 9px at calc(100% - 48px) 48px, #e0b840 10%, #8b6010 60%, transparent 70%),
+      radial-gradient(circle 9px at 48px calc(100% - 48px), #e0b840 10%, #8b6010 60%, transparent 70%),
+      radial-gradient(circle 9px at calc(100% - 48px) calc(100% - 48px), #e0b840 10%, #8b6010 60%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── Board viewport (clips board) ── */
+  #board-wrap {
+    width: min(86vw, 140vh);
+    height: min(72vh, 56vw);
+    overflow: hidden;
+    position: relative;
+    border-radius: 3px;
+    cursor: grab;
+  }
+  #board-wrap.panning { cursor: grabbing; }
+
+  /* ── Infinite cork board ── */
+  #board {
+    width: 5000px; height: 3500px;
+    position: relative;
+    background-color: #b07840;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0.38'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.55'/%3E%3C/svg%3E"),
+      repeating-linear-gradient(0deg,  transparent, transparent 2px, rgba(0,0,0,0.024) 2px, rgba(0,0,0,0.024) 4px),
+      repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.024) 2px, rgba(0,0,0,0.024) 4px);
+    background-size: 400px 400px, 18px 18px, 18px 18px;
+    transform-origin: 0 0;
+  }
+  /* Cork colour variation overlay */
+  #board::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 15% 20%, rgba(190,130,60,0.28) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 75%, rgba(90,50,10,0.22) 0%, transparent 50%),
+      radial-gradient(ellipse at 55% 5%,  rgba(210,160,80,0.15) 0%, transparent 40%),
+      radial-gradient(ellipse at 5% 85%,  rgba(140,90,30,0.18) 0%, transparent 40%);
+    pointer-events: none;
+  }
+  /* Inner shadow on board edges */
+  #board::after {
+    content: '';
+    position: absolute; inset: 0;
+    box-shadow: inset 0 0 80px rgba(0,0,0,0.3);
+    pointer-events: none;
+  }
+
+  /* ── SVG strings ── */
+  #strings-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible; z-index: 1;
+  }
+  .string-line {
+    stroke: var(--red-string);
+    stroke-width: 2.5; fill: none;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.65));
+    pointer-events: stroke; cursor: pointer;
+  }
+  .string-line:hover { stroke: #e74c3c; stroke-width: 3.5; }
+
+  /* ── Notes ── */
+  .note {
+    position: absolute; width: 220px; min-height: 160px;
+    background: var(--parchment);
+    border: 1px solid rgba(0,0,0,0.13); border-radius: 2px;
+    padding: 28px 14px 14px 14px;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.06), 4px 7px 14px rgba(0,0,0,0.32), inset 0 0 20px rgba(0,0,0,0.04);
+    cursor: grab; color: var(--ink); font-size: 13px; line-height: 1.5;
+    transform-origin: center center; z-index: 2;
+  }
+  .note:active { cursor: grabbing; }
+  .note::before {
+    content: ''; position: absolute; top: -1px; left: -1px; right: -1px;
+    height: 5px; background: var(--parchment-dark); border-radius: 2px 2px 0 0; opacity: 0.6;
+  }
+  .note-header {
+    position: absolute; top: 0; left: 0; right: 0; height: 24px;
+    background: rgba(0,0,0,0.07); border-radius: 2px 2px 0 0;
+    display: flex; align-items: center; justify-content: flex-end; padding: 0 4px; gap: 4px;
+  }
+  .note-title {
+    font-family: 'Crimson Text', serif; font-weight: 600; font-size: 14px;
+    color: var(--ink); margin-bottom: 6px;
+    border-bottom: 1px solid rgba(0,0,0,0.13); padding-bottom: 4px;
+    cursor: text; min-height: 20px; outline: none;
+  }
+  .note-title:focus { background: rgba(255,255,255,0.5); border-radius: 2px; }
+  .note-body {
+    cursor: text; min-height: 80px; outline: none;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .note-body:focus { background: rgba(255,255,255,0.38); border-radius: 2px; }
+  .note-resize {
+    position: absolute; bottom: 2px; right: 2px;
+    width: 14px; height: 14px; cursor: se-resize; opacity: 0.35;
+  }
+  .note-resize::after {
+    content: ''; position: absolute; bottom: 2px; right: 2px;
+    width: 8px; height: 8px;
+    border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink);
+  }
+  .note-rotate {
+    position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+    width: 15px; height: 15px; background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(0,0,0,0.22); border-radius: 50%;
+    cursor: crosshair; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; opacity: 0; transition: opacity 0.2s; z-index: 5;
+  }
+  .note:hover .note-rotate { opacity: 1; }
+  .note-delete {
+    width: 16px; height: 16px; background: rgba(180,30,30,0.75);
+    border: none; border-radius: 50%; color: white; font-size: 10px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s; flex-shrink: 0;
+  }
+  .note:hover .note-delete { opacity: 1; }
+  .note-pin {
+    position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+    width: 17px; height: 17px;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.45), inset 0 -2px 4px rgba(0,0,0,0.2);
+    z-index: 10; pointer-events: none;
+  }
+  .note-pin::after {
+    content: ''; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
+    width: 2px; height: 9px;
+    background: linear-gradient(to bottom, #999, #555); border-radius: 0 0 2px 2px;
+  }
+  .note.link-source { outline: 3px solid var(--red-string); outline-offset: 2px; }
+
+  /* ── Image cards ── */
+  .img-card {
+    position: absolute; background: #f0e0c0; border: 6px solid #e8d0a0;
+    box-shadow: 3px 4px 14px rgba(0,0,0,0.4); cursor: grab;
+    transform-origin: center center; padding: 4px 4px 30px 4px; z-index: 2;
+  }
+  .img-card img { display: block; max-width: 200px; max-height: 180px; object-fit: cover; }
+  .img-card-caption {
+    text-align: center; font-family: 'Special Elite', cursive;
+    font-size: 11px; color: var(--ink); padding: 4px;
+    cursor: text; outline: none; min-height: 18px;
+  }
+  .img-card-delete {
+    position: absolute; top: 4px; right: 4px; background: rgba(180,30,30,0.82);
+    border: none; border-radius: 50%; width: 18px; height: 18px;
+    color: white; font-size: 11px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .img-card:hover .img-card-delete { opacity: 1; }
+  .img-card-rotate {
+    position: absolute; bottom: 4px; right: 4px;
+    width: 14px; height: 14px; background: rgba(255,255,255,0.62);
+    border: 1px solid rgba(0,0,0,0.26); border-radius: 50%;
+    cursor: crosshair; font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .img-card:hover .img-card-rotate { opacity: 1; }
+
+  /* ── Toolbar ── */
+  #toolbar {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 1000;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--toolbar-bg);
+    border: 2px solid var(--toolbar-border); border-radius: 6px;
+    padding: 8px 14px;
+    box-shadow: 0 4px 28px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.04);
+    backdrop-filter: blur(6px);
+    white-space: nowrap;
+  }
+  .toolbar-title {
+    font-family: 'UnifrakturMaguntia', cursive;
+    color: #d4a853; font-size: 18px; letter-spacing: 1px; margin-right: 8px;
+    text-shadow: 0 1px 5px rgba(0,0,0,0.6);
+  }
+  .sep { width: 1px; height: 28px; background: var(--toolbar-border); margin: 0 4px; }
+  .tb-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 10px;
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px; color: #e8d5a3;
+    font-family: 'Special Elite', cursive; font-size: 12px;
+    cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .tb-btn:hover { background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.24); }
+  .tb-btn.active { background: rgba(192,57,43,0.38); border-color: var(--red-string); color: #ff9999; }
+  .pin-palette { display: flex; gap: 5px; align-items: center; }
+  .pin-btn {
+    width: 18px; height: 18px;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    border: 1px solid rgba(0,0,0,0.4); cursor: pointer;
+    transition: transform 0.15s; box-shadow: 0 2px 4px rgba(0,0,0,0.38);
+  }
+  .pin-btn:hover { transform: scale(1.2); }
+  .pin-btn.selected { outline: 2px solid white; outline-offset: 1px; }
+
+  /* ── Tooltip ── */
+  #tooltip {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    background: rgba(16,6,1,0.92); color: #e8d5a3;
+    font-family: 'Special Elite', cursive; font-size: 13px;
+    padding: 8px 18px; border: 1px solid var(--toolbar-border);
+    border-radius: 4px; z-index: 2000; pointer-events: none;
+    opacity: 0; transition: opacity 0.3s; white-space: nowrap;
+  }
+  #tooltip.show { opacity: 1; }
+
+  /* ── Context menu ── */
+  #ctx-menu {
+    position: fixed; z-index: 3000;
+    background: var(--toolbar-bg); border: 1px solid var(--toolbar-border);
+    border-radius: 4px; padding: 4px 0; min-width: 162px;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.65); display: none;
+  }
+  .ctx-item {
+    padding: 7px 14px; color: #e8d5a3;
+    font-family: 'Special Elite', cursive; font-size: 12px; cursor: pointer;
+  }
+  .ctx-item:hover { background: rgba(255,255,255,0.1); }
+  .ctx-sep { height: 1px; background: var(--toolbar-border); margin: 3px 0; }
+  #file-input, #import-input { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <span class="toolbar-title">⚔ Player's Board</span>
+  <div class="sep"></div>
+  <button class="tb-btn" id="btn-add-note">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="1"/><path d="M8 4v8M4 8h8"/></svg>
+    Add Note
+  </button>
+  <button class="tb-btn" id="btn-add-image">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="2" width="14" height="12" rx="1"/><circle cx="5.5" cy="6.5" r="1.5"/><path d="M1 11.5l4-4 3 3 2-2 5 5"/></svg>
+    Image
+  </button>
+  <div class="sep"></div>
+  <button class="tb-btn" id="btn-link">
+    <svg width="14" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="3" cy="8" r="2"/><circle cx="13" cy="4" r="2"/><path d="M5 7.5C8 7.5 10 4.5 11 4.5"/></svg>
+    String
+  </button>
+  <div class="sep"></div>
+  <span style="color:#9a7a5a;font-size:11px;margin-right:2px;">Pin:</span>
+  <div class="pin-palette" id="pin-palette">
+    <div class="pin-btn" data-color="#e74c3c" style="background:#e74c3c" title="Red"></div>
+    <div class="pin-btn selected" data-color="#2980b9" style="background:#2980b9" title="Blue"></div>
+    <div class="pin-btn" data-color="#27ae60" style="background:#27ae60" title="Green"></div>
+    <div class="pin-btn" data-color="#f39c12" style="background:#f39c12" title="Gold"></div>
+    <div class="pin-btn" data-color="none" style="background:transparent;border:1px dashed rgba(255,255,255,0.3);font-size:9px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.45)" title="No Pin">✕</div>
+  </div>
+  <div class="sep"></div>
+  <button class="tb-btn" id="btn-export">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v9M4 7l4 4 4-4"/><path d="M1 12v2a1 1 0 001 1h12a1 1 0 001-1v-2"/></svg>
+    Export
+  </button>
+  <button class="tb-btn" id="btn-import">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V2M4 5l4-4 4 4"/><path d="M1 12v2a1 1 0 001 1h12a1 1 0 001-1v-2"/></svg>
+    Import
+  </button>
+  <button class="tb-btn" id="btn-fit-view" title="Zoom to fit entire board">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 6V1h5M10 1h5v5M15 10v5h-5M6 15H1v-5"/></svg>
+    Fit View
+  </button>
+</div>
+
+<div id="tooltip"></div>
+
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-delete">🗑 Delete</div>
+  <div class="ctx-item" id="ctx-pin">📌 Change Pin</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-bring-front">⬆ Bring to Front</div>
+  <div class="ctx-item" id="ctx-send-back">⬇ Send to Back</div>
+</div>
+
+<input type="file" id="file-input" accept="image/*">
+<input type="file" id="import-input" accept=".json">
+
+<!-- Scene: stone wall → wooden frame → cork board -->
+<div id="scene">
+  <div id="frame-shell">
+    <div id="board-wrap">
+      <div id="board">
+        <svg id="strings-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ════════════════════════════════════════════════════
+//  CUSTOM PAN / ZOOM  (hand-rolled — no panzoom needed,
+//  so there's no CDN race condition and notes never
+//  trigger board panning)
+// ════════════════════════════════════════════════════
+const boardWrap = document.getElementById('board-wrap');
+const boardEl   = document.getElementById('board');
+const BOARD_W = 5000, BOARD_H = 3500;
+
+let panX = 0, panY = 0, curScale = 1;
+
+function applyTransform(animated = false) {
+  boardEl.style.transition = animated ? 'transform 0.38s ease' : 'none';
+  boardEl.style.transform  = `translate(${panX}px,${panY}px) scale(${curScale})`;
+}
+
+// Constrain pan so board never floats off-screen completely.
+// When fully zoomed out (board smaller than viewport) → centre & lock.
+function clampPan() {
+  const vw = boardWrap.clientWidth, vh = boardWrap.clientHeight;
+  const sw = BOARD_W * curScale,    sh = BOARD_H * curScale;
+  panX = sw <= vw ? (vw - sw) / 2 : Math.min(0, Math.max(panX, vw - sw));
+  panY = sh <= vh ? (vh - sh) / 2 : Math.min(0, Math.max(panY, vh - sh));
+}
+
+// Zoom board so it fills the viewport (with small padding)
+function fitBoard(animated = true) {
+  const vw = boardWrap.clientWidth, vh = boardWrap.clientHeight;
+  curScale = Math.min(vw / BOARD_W, vh / BOARD_H) * 0.96;
+  panX = (vw - BOARD_W * curScale) / 2;
+  panY = (vh - BOARD_H * curScale) / 2;
+  applyTransform(animated);
+}
+
+// ── Manual pan — only fires when clicking the board background, not notes ──
+let _panning=false, _panSX=0, _panSY=0, _panSPX=0, _panSPY=0;
+
+boardWrap.addEventListener('mousedown', (e) => {
+  // Ignore clicks on notes and image cards — they handle their own drag
+  if (e.target.closest('.note,.img-card')) return;
+  if (e.button !== 0) return;
+  _panning=true; boardWrap.classList.add('panning');
+  _panSX=e.clientX; _panSY=e.clientY; _panSPX=panX; _panSPY=panY;
+  e.preventDefault();
+});
+window.addEventListener('mousemove', (e) => {
+  if (!_panning) return;
+  panX = _panSPX + (e.clientX - _panSX);
+  panY = _panSPY + (e.clientY - _panSY);
+  clampPan(); applyTransform(false);
+});
+window.addEventListener('mouseup', () => { if (_panning) { _panning=false; boardWrap.classList.remove('panning'); } });
+
+// ── Scroll-to-zoom (zoom toward cursor) ──
+boardWrap.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect  = boardWrap.getBoundingClientRect();
+  const mx    = e.clientX - rect.left;  // mouse in viewport-space
+  const my    = e.clientY - rect.top;
+  const bx    = (mx - panX) / curScale;  // mouse in board-space (invariant point)
+  const by    = (my - panY) / curScale;
+  const delta = e.deltaY < 0 ? 1.09 : 0.917;
+  curScale    = Math.max(0.14, Math.min(3.0, curScale * delta));
+  panX = mx - bx * curScale;
+  panY = my - by * curScale;
+  clampPan(); applyTransform(false);
+}, { passive: false });
+
+// Helper: viewport coords → board coords
+function toBoardCoords(vx, vy) {
+  const r = boardWrap.getBoundingClientRect();
+  return { x: (vx - r.left - panX) / curScale, y: (vy - r.top - panY) / curScale };
+}
+// Centre of what's currently visible, in board-space
+function viewCentre() {
+  const r = boardWrap.getBoundingClientRect();
+  return toBoardCoords(r.left + r.width/2, r.top + r.height/2);
+}
+
+// ════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════
+const state = {
+  notes:[], images:[], strings:[],
+  nextId:1, zTop:10,
+  selectedPin:'#2980b9',
+  linkMode:false, linkSource:null,
+};
+
+// ════════════════════════════════════════════════════
+//  TOOLTIP
+// ════════════════════════════════════════════════════
+let _tipT;
+function showTip(msg, dur=2700) {
+  const el=document.getElementById('tooltip');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(_tipT); _tipT=setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+// ════════════════════════════════════════════════════
+//  PIN PALETTE
+// ════════════════════════════════════════════════════
+document.querySelectorAll('.pin-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.pin-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    state.selectedPin = btn.dataset.color;
+  });
+});
+
+// ════════════════════════════════════════════════════
+//  NOTE CREATION & RENDERING
+// ════════════════════════════════════════════════════
+function addNote(opts={}) {
+  const id = `note_${state.nextId++}`;
+  const nd = {
+    id, rot: opts.rot ?? (Math.random()*8-4),
+    x: opts.x ?? 800, y: opts.y ?? 400, w: opts.w ?? 220,
+    title: opts.title ?? 'New Clue',
+    body:  opts.body  ?? 'Write your findings here…',
+    pin:   opts.pin   ?? state.selectedPin,
+    zIndex: ++state.zTop,
+  };
+  state.notes.push(nd);
+  renderNote(nd);
+}
+
+function renderNote(d) {
+  const el = document.createElement('div');
+  el.className='note'; el.id=d.id;
+  el.style.cssText=`left:${d.x}px;top:${d.y}px;width:${d.w}px;transform:rotate(${d.rot}deg);z-index:${d.zIndex}`;
+
+  // Push-pin
+  const pinEl = document.createElement('div'); pinEl.className='note-pin';
+  if (d.pin && d.pin!=='none') pinEl.style.background=d.pin; else pinEl.style.display='none';
+  el.appendChild(pinEl);
+
+  // Rotate handle
+  const rotH = document.createElement('div'); rotH.className='note-rotate'; rotH.innerHTML='↻';
+  el.appendChild(rotH);
+
+  // Header / delete button
+  const hdr = document.createElement('div'); hdr.className='note-header';
+  const del = document.createElement('button'); del.className='note-delete'; del.innerHTML='✕';
+  hdr.appendChild(del); el.appendChild(hdr);
+
+  // Title
+  const title = document.createElement('div');
+  title.className='note-title'; title.contentEditable='true'; title.textContent=d.title;
+  el.appendChild(title);
+
+  // Body
+  const body = document.createElement('div');
+  body.className='note-body'; body.contentEditable='true'; body.textContent=d.body;
+  el.appendChild(body);
+
+  // Resize
+  const rsz = document.createElement('div'); rsz.className='note-resize'; el.appendChild(rsz);
+
+  boardEl.appendChild(el);
+
+  // Interactions
+  makeDraggable(el, d);
+  makeResizable(rsz, el, d);
+  makeRotatable(rotH, el, d);
+
+  title.addEventListener('input', ()=>{ d.title=title.textContent; });
+  body.addEventListener('input',  ()=>{ d.body=body.textContent; });
+
+  // contenteditable must stop mousedown from reaching boardWrap pan handler
+  [title, body].forEach(t => t.addEventListener('mousedown', e=>e.stopPropagation()));
+
+  del.addEventListener('click', e=>{ e.stopPropagation(); deleteElement(d.id,'note'); });
+
+  el.addEventListener('mousedown', (e) => {
+    if (e.target===title||e.target===body) return;
+    d.zIndex=++state.zTop; el.style.zIndex=d.zIndex;
+    if (state.linkMode){ e.stopPropagation(); handleLinkClick(d.id); }
+  });
+
+  el.addEventListener('contextmenu', e=>{ e.preventDefault(); showCtxMenu(e,d.id,'note'); });
+}
+
+// ════════════════════════════════════════════════════
+//  IMAGE CREATION & RENDERING
+// ════════════════════════════════════════════════════
+function addImage(src, opts={}) {
+  const id=`img_${state.nextId++}`;
+  const imgData={
+    id, src,
+    rot: opts.rot ?? (Math.random()*10-5),
+    x: opts.x??900, y: opts.y??350, w: opts.w??200,
+    caption: opts.caption??'', zIndex:++state.zTop,
+  };
+  state.images.push(imgData); renderImage(imgData);
+}
+
+function renderImage(d) {
+  const el=document.createElement('div');
+  el.className='img-card'; el.id=d.id;
+  el.style.cssText=`left:${d.x}px;top:${d.y}px;width:${d.w}px;transform:rotate(${d.rot}deg);z-index:${d.zIndex}`;
+
+  const img=document.createElement('img'); img.src=d.src; img.style.width='100%';
+  el.appendChild(img);
+
+  const cap=document.createElement('div');
+  cap.className='img-card-caption'; cap.contentEditable='true'; cap.textContent=d.caption;
+  cap.addEventListener('input', ()=>{ d.caption=cap.textContent; });
+  cap.addEventListener('mousedown', e=>e.stopPropagation());
+  el.appendChild(cap);
+
+  const del=document.createElement('button'); del.className='img-card-delete'; del.innerHTML='✕';
+  del.addEventListener('click', e=>{ e.stopPropagation(); deleteElement(d.id,'image'); });
+  el.appendChild(del);
+
+  const rotH=document.createElement('div'); rotH.className='img-card-rotate'; rotH.innerHTML='↻';
+  el.appendChild(rotH);
+
+  boardEl.appendChild(el);
+  makeDraggable(el, d);
+  makeRotatable(rotH, el, d);
+
+  el.addEventListener('mousedown', (e)=>{
+    if (e.target===cap) return;
+    d.zIndex=++state.zTop; el.style.zIndex=d.zIndex;
+    if (state.linkMode){ e.stopPropagation(); handleLinkClick(d.id); }
+  });
+  el.addEventListener('contextmenu', e=>{ e.preventDefault(); showCtxMenu(e,d.id,'image'); });
+}
+
+// ════════════════════════════════════════════════════
+//  DRAG  — scale-aware; stopPropagation prevents board panning
+// ════════════════════════════════════════════════════
+function makeDraggable(el, data) {
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.note-delete,.note-resize,.note-rotate,.img-card-delete,.img-card-rotate,[contenteditable]')) return;
+    if (state.linkMode) return;
+    e.stopPropagation();   // ← key: don't let board pan handler fire
+    e.preventDefault();
+    const sx=(e.clientX-panX)/curScale, sy=(e.clientY-panY)/curScale;
+    const ox=data.x, oy=data.y;
+    const onMove=(e)=>{
+      data.x=ox+((e.clientX-panX)/curScale-sx);
+      data.y=oy+((e.clientY-panY)/curScale-sy);
+      el.style.left=`${data.x}px`; el.style.top=`${data.y}px`;
+      updateStrings();
+    };
+    const onUp=()=>{ window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); };
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+  });
+}
+
+// ════════════════════════════════════════════════════
+//  RESIZE
+// ════════════════════════════════════════════════════
+function makeResizable(handle, el, data) {
+  handle.addEventListener('mousedown', (e)=>{
+    e.stopPropagation(); e.preventDefault();
+    const sx=e.clientX, sw=data.w;
+    const onMove=(e)=>{ data.w=Math.max(160,sw+(e.clientX-sx)/curScale); el.style.width=`${data.w}px`; };
+    const onUp=()=>{ window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); };
+    window.addEventListener('mousemove',onMove); window.addEventListener('mouseup',onUp);
+  });
+}
+
+// ════════════════════════════════════════════════════
+//  ROTATE
+// ════════════════════════════════════════════════════
+function makeRotatable(handle, el, data) {
+  handle.addEventListener('mousedown', (e)=>{
+    e.stopPropagation(); e.preventDefault();
+    const r=el.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const onMove=(e)=>{
+      data.rot=Math.atan2(e.clientY-cy,e.clientX-cx)*(180/Math.PI)+90;
+      el.style.transform=`rotate(${data.rot}deg)`; updateStrings();
+    };
+    const onUp=()=>{ window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); };
+    window.addEventListener('mousemove',onMove); window.addEventListener('mouseup',onUp);
+  });
+}
+
+// ════════════════════════════════════════════════════
+//  DELETE
+// ════════════════════════════════════════════════════
+function deleteElement(id, type) {
+  document.getElementById(id)?.remove();
+  if (type==='note')  state.notes  = state.notes.filter(n=>n.id!==id);
+  if (type==='image') state.images = state.images.filter(n=>n.id!==id);
+  state.strings = state.strings.filter(s=>{
+    if(s.fromId===id||s.toId===id){ document.getElementById(s.id)?.remove(); return false; }
+    return true;
+  });
+}
+
+// ════════════════════════════════════════════════════
+//  RED STRING SYSTEM
+// ════════════════════════════════════════════════════
+document.getElementById('btn-link').addEventListener('click', ()=>{
+  state.linkMode=!state.linkMode; state.linkSource=null;
+  document.getElementById('btn-link').classList.toggle('active',state.linkMode);
+  document.querySelectorAll('.note.link-source').forEach(n=>n.classList.remove('link-source'));
+  showTip(state.linkMode?'🔴 String Mode: click a note, then another to connect.':'String mode off.');
+});
+
+function handleLinkClick(id) {
+  if (!state.linkSource) {
+    state.linkSource=id; document.getElementById(id)?.classList.add('link-source');
+    showTip('Now click the destination note or image…');
+  } else if (state.linkSource!==id) {
+    document.getElementById(state.linkSource)?.classList.remove('link-source');
+    createString(state.linkSource, id); state.linkSource=null;
+    showTip('Red string drawn! Click two more to link again.');
+  }
+}
+
+function createString(fromId, toId) {
+  if (state.strings.find(s=>(s.fromId===fromId&&s.toId===toId)||(s.fromId===toId&&s.toId===fromId))){
+    showTip('Already linked!'); return;
+  }
+  const id=`str_${state.nextId++}`;
+  state.strings.push({id,fromId,toId});
+  renderString({id,fromId,toId});
+}
+
+function getCenter(id) {
+  const d=[...state.notes,...state.images].find(n=>n.id===id);
+  const el=document.getElementById(id);
+  if (!d||!el) return null;
+  return { x: d.x+el.offsetWidth/2, y: d.y+el.offsetHeight/2 };
+}
+
+function renderString(s) {
+  const svg=document.getElementById('strings-svg');
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.id=s.id; path.classList.add('string-line');
+  svg.appendChild(path);
+  path.addEventListener('contextmenu',(e)=>{
+    e.preventDefault();
+    state.strings=state.strings.filter(st=>st.id!==s.id);
+    path.remove();
+  });
+  updateStringPath(s);
+}
+
+function updateStringPath(s) {
+  const path=document.getElementById(s.id); if (!path) return;
+  const a=getCenter(s.fromId), b=getCenter(s.toId);
+  if (!a||!b){ path.setAttribute('d',''); return; }
+  const mx=(a.x+b.x)/2, my=(a.y+b.y)/2+50;
+  path.setAttribute('d',`M${a.x},${a.y} Q${mx},${my} ${b.x},${b.y}`);
+}
+function updateStrings(){ state.strings.forEach(s=>updateStringPath(s)); }
+
+// ════════════════════════════════════════════════════
+//  CONTEXT MENU
+// ════════════════════════════════════════════════════
+let ctxTarget=null, ctxType=null;
+const ctxMenu=document.getElementById('ctx-menu');
+
+function showCtxMenu(e,id,type){
+  ctxTarget=id; ctxType=type;
+  ctxMenu.style.left=`${e.clientX}px`; ctxMenu.style.top=`${e.clientY}px`;
+  ctxMenu.style.display='block';
+  document.getElementById('ctx-pin').style.display=type==='note'?'':'none';
+}
+document.addEventListener('click', ()=>{ ctxMenu.style.display='none'; });
+document.getElementById('ctx-delete').addEventListener('click', ()=>{ if(ctxTarget)deleteElement(ctxTarget,ctxType); });
+document.getElementById('ctx-bring-front').addEventListener('click', ()=>{
+  const el=document.getElementById(ctxTarget);
+  const d=[...state.notes,...state.images].find(x=>x.id===ctxTarget);
+  if(el&&d){ d.zIndex=++state.zTop; el.style.zIndex=d.zIndex; }
+});
+document.getElementById('ctx-send-back').addEventListener('click', ()=>{
+  const el=document.getElementById(ctxTarget);
+  const d=[...state.notes,...state.images].find(x=>x.id===ctxTarget);
+  if(el&&d){ d.zIndex=1; el.style.zIndex=1; }
+});
+document.getElementById('ctx-pin').addEventListener('click', ()=>{
+  const note=state.notes.find(n=>n.id===ctxTarget); if (!note) return;
+  note.pin=state.selectedPin;
+  const pinEl=document.querySelector(`#${ctxTarget} .note-pin`);
+  if (pinEl){
+    if(note.pin&&note.pin!=='none'){ pinEl.style.background=note.pin; pinEl.style.display=''; }
+    else pinEl.style.display='none';
+  }
+
+});
+
+// ════════════════════════════════════════════════════
+//  ADD NOTE — appears at current view centre
+// ════════════════════════════════════════════════════
+document.getElementById('btn-add-note').addEventListener('click', ()=>{
+  const c=viewCentre();
+  addNote({ x:c.x-110+(Math.random()*30-15), y:c.y-80+(Math.random()*30-15) });
+  showTip('📜 Note added! Click title or body to edit.');
+});
+
+// ════════════════════════════════════════════════════
+//  IMAGE UPLOAD — appears at current view centre
+// ════════════════════════════════════════════════════
+document.getElementById('btn-add-image').addEventListener('click', ()=>document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', (e)=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    const c=viewCentre();
+    addImage(ev.target.result,{x:c.x-100,y:c.y-100});
+    showTip('🖼 Image added! Right-click for options.');
+  };
+  reader.readAsDataURL(file); e.target.value='';
+});
+
+// ════════════════════════════════════════════════════
+//  EXPORT
+// ════════════════════════════════════════════════════
+document.getElementById('btn-export').addEventListener('click', ()=>{
+  state.notes.forEach(n=>{ const el=document.getElementById(n.id); if(!el)return; n.title=el.querySelector('.note-title')?.textContent??n.title; n.body=el.querySelector('.note-body')?.textContent??n.body; });
+  state.images.forEach(img=>{ const el=document.getElementById(img.id); if(!el)return; img.caption=el.querySelector('.img-card-caption')?.textContent??img.caption; });
+  const data=JSON.stringify({notes:state.notes,images:state.images,strings:state.strings,nextId:state.nextId,zTop:state.zTop},null,2);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download='players_board.json'; a.click();
+  showTip('📦 Board exported! Guard it with your life, adventurer.');
+});
+
+// ════════════════════════════════════════════════════
+//  IMPORT
+// ════════════════════════════════════════════════════
+document.getElementById('btn-import').addEventListener('click', ()=>document.getElementById('import-input').click());
+document.getElementById('import-input').addEventListener('change', (e)=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    try {
+      const data=JSON.parse(ev.target.result);
+      boardEl.querySelectorAll('.note,.img-card').forEach(el=>el.remove());
+      document.getElementById('strings-svg').innerHTML='';
+      state.notes=[]; state.images=[]; state.strings=[];
+      state.nextId=data.nextId??1; state.zTop=data.zTop??1;
+      (data.notes??[]).forEach(n=>{state.notes.push(n);renderNote(n);});
+      (data.images??[]).forEach(img=>{state.images.push(img);renderImage(img);});
+      (data.strings??[]).forEach(s=>{state.strings.push(s);renderString(s);});
+      showTip('📖 Board loaded! Your investigation continues…');
+    } catch{ showTip('⚠ Failed to load — is this a valid board JSON?'); }
+  };
+  reader.readAsText(file); e.target.value='';
+});
+
+// ════════════════════════════════════════════════════
+//  FIT VIEW BUTTON
+// ════════════════════════════════════════════════════
+document.getElementById('btn-fit-view').addEventListener('click', ()=>fitBoard(true));
+
+// ════════════════════════════════════════════════════
+//  DEMO SEED + initial fit
+// ════════════════════════════════════════════════════
+setTimeout(()=>{
+  createString(state.notes[0].id, state.notes[1].id);
+  createString(state.notes[1].id, state.notes[2].id);
+  updateStrings();
+  fitBoard(false); // start with full board visible
+  setTimeout(()=>showTip("⚔ Welcome to the Player's Board! Scroll to zoom · drag background to pan · Add Note to begin.", 4500), 300);
+}, 100);
+</script>
+</body>
+</html>

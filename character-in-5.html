@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Builder</title>
+    <!-- Use Tailwind CSS for a clean, responsive design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Tone.js for sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0c1a17; /* Dark green */
+            color: #e0f2f1; /* Light text */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background-color: #162e28; /* Lighter green */
+            border: 1px solid #2d4f45;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            animation: fadeIn 1s ease-in-out;
+            position: relative;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .word-card {
+            background-color: #1e4038;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease-in-out;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+            border: 1px solid #2d4f45;
+            position: relative;
+            cursor: pointer; /* Indicate it's clickable */
+        }
+        .word-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .word-card:active {
+            transform: scale(0.95);
+        }
+
+        .word-text {
+            font-size: 1.75rem; /* Adjusted for multiple categories */
+            font-weight: bold;
+            color: #6ee7b7; /* Vibrant aqua-green */
+            text-shadow: 0 0 10px rgba(110, 231, 183, 0.5);
+            transition: transform 0.3s ease-in-out;
+            user-select: none;
+        }
+
+        .animate-pop {
+            animation: pop 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+
+        .button {
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .lock-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 9999px;
+            background-color: rgba(0, 0, 0, 0.2);
+            color: #a0a0a0;
+            transition: color 0.3s, background-color 0.3s;
+            cursor: pointer;
+            z-index: 10; /* Ensure lock button is on top */
+        }
+        .lock-btn:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .lock-btn.locked {
+            color: #ffffff;
+            background-color: #115e59; /* Locked color */
+        }
+
+        /* D20 Styles */
+        #d20-roll {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            width: 50px;
+            height: 50px;
+            background-color: #34d399; /* D20 color */
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease-in-out;
+            user-select: none;
+        }
+        #d20-roll:hover {
+            transform: scale(1.05);
+        }
+
+        /* New D20 number animation */
+        @keyframes roll-number {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-100%); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- D20 Roll Button -->
+        <div id="d20-roll" title="Roll a D20">
+            20
+        </div>
+
+        <h1 class="text-3xl font-bold text-center mb-4">Character Builder</h1>
+        <p class="text-center text-gray-400">
+            Generate a unique character concept with a Personality, Role, Goal, Talent, and Flaw.
+        </p>
+
+        <!-- Words Display Area - Top Row (3) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Personality card -->
+            <div id="personalityCard" class="word-card">
+                <button id="personalityLock" class="lock-btn" aria-label="Toggle lock for personality">
+                    <svg id="personalityLockIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <p class="text-sm uppercase text-gray-500 mb-2">Personality</p>
+                <span id="personality" class="word-text">...</span>
+            </div>
+            <!-- Role card -->
+            <div id="roleCard" class="word-card">
+                <button id="roleLock" class="lock-btn" aria-label="Toggle lock for role">
+                    <svg id="roleLockIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <p class="text-sm uppercase text-gray-500 mb-2">Role</p>
+                <span id="role" class="word-text">...</span>
+            </div>
+            <!-- Goal card -->
+            <div id="goalCard" class="word-card">
+                <button id="goalLock" class="lock-btn" aria-label="Toggle lock for goal">
+                    <svg id="goalLockIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <p class="text-sm uppercase text-gray-500 mb-2">Goal</p>
+                <span id="goal" class="word-text">...</span>
+            </div>
+        </div>
+        
+        <!-- Words Display Area - Bottom Row (2) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Talent card -->
+            <div id="talentCard" class="word-card">
+                <button id="talentLock" class="lock-btn" aria-label="Toggle lock for talent">
+                    <svg id="talentLockIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <p class="text-sm uppercase text-gray-500 mb-2">Talent</p>
+                <span id="talent" class="word-text">...</span>
+            </div>
+            <!-- Flaw card -->
+            <div id="flawCard" class="word-card">
+                <button id="flawLock" class="lock-btn" aria-label="Toggle lock for flaw">
+                    <svg id="flawLockIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <p class="text-sm uppercase text-gray-500 mb-2">Flaw</p>
+                <span id="flaw" class="word-text">...</span>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <button id="generateBtn" class="button w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                Generate Character
+            </button>
+            <button id="copyBtn" class="button w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-8 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                Copy
+            </button>
+        </div>
+
+        <!-- Notification box -->
+        <div id="notification" class="hidden fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-center py-2 px-4 rounded-lg transition-opacity duration-300 opacity-0">
+            Copied to clipboard!
+        </div>
+    </div>
+
+    <script>
+        // Word lists for character creation
+        const personalities = [
+            "Stoic", "Reckless", "Loyal", "Ambitious", "Cautious", "Brave", "Cowardly", "Arrogant", "Humble", "Naive",
+            "Cynical", "Idealistic", "Jaded", "Eccentric", "Resourceful", "Vengeful", "Gregarious", "Inquisitive", "Silent", "Boisterous",
+            "Charismatic", "Grumpy", "Mischievous", "Optimistic", "Pessimistic", "Generous", "Greedy", "Honorable", "Deceptive", "Curious",
+            "Grave", "Lively", "Quiet", "Loud", "Bold", "Timid", "Cruel", "Kind", "Stern", "Gentle", "Impulsive", "Methodical",
+            "Patient", "Impatient", "Oblivious", "Perceptive", "Wary", "Trusting", "Playful", "Serious", "Calm", "Frenetic",
+            "Melancholy", "Jovial", "Bitter", "Compassionate", "Selfish", "Altruistic", "Proud", "Shameful", "Gullible", "Suspicious",
+            "Passionate", "Apathetic", "Reflective", "Spontaneous", "Witty", "Dull", "Pompous", "Sincere", "Dispassionate", "Fiery",
+            "Dependable", "Unreliable", "Punctual", "Tardy", "Polite", "Rude", "Frugal", "Extravagant", "Practical", "Fanciful",
+            "Reserved", "Outgoing", "Wistful", "Energetic", "Lazy", "Diligent", "Fearless", "Apprehensive", "Mysterious", "Open"
+        ];
+        const roles = [
+            "Knight", "Rogue", "Wizard", "Bard", "Ranger", "Cleric", "Barbarian", "Monk", "Artificer", "Paladin",
+            "Warlock", "Sorcerer", "Druid", "Scholar", "Diplomat", "Spy", "Merchant", "Hunter", "Thief", "Jester",
+            "Alchemist", "Assassin", "Gladiator", "Healer", "Infiltrator", "Librarian", "Lancer", "Necromancer", "Priest", "Scout",
+            "Soldier", "Summoner", "Swashbuckler", "Vampire Hunter", "Witch", "Zealot", "Acolyte", "Berserker", "Blacksmith", "Cartographer",
+            "Commander", "Cook", "Courtier", "Demolitionist", "Engineer", "Executioner", "Exile", "Farmer", "Fisherman", "Geomancer",
+            "Herbalist", "Historian", "Inquisitor", "Locksmith", "Minstrel", "Mountaineer", "Navigator", "Oracle", "Poet", "Sailor",
+            "Scoundrel", "Scribe", "Shaman", "Smuggler", "Spymaster", "Street Urchin", "Tavern Keeper", "Tinker", "Torturer", "Trader",
+            "Trickster", "Vigilante", "Wanderer", "Weaponmaster", "Woodcutter", "Zookeeper", "Architect", "Astronomer", "Beggar", "Butcher",
+            "Conjurer", "Dancer", "Farmer", "Grave Digger", "Guide", "Inkeeper", "Jailer", "Lumberjack", "Magician", "Messiah",
+            "Noble", "Pauper", "Phylosopher", "Plague Doctor", "Professor", "Protester", "Saboteur", "Sage", "Sentinel", "Shepherd"
+        ];
+        const goals = [
+            "To seek vengeance", "To protect a secret", "To find a lost relic", "To become a king", "To acquire immense wealth",
+            "To clear their name", "To save their village", "To find their family", "To escape their past", "To right a past wrong",
+            "To destroy an ancient evil", "To forge a new path", "To master a craft", "To build a new home", "To uncover a conspiracy",
+            "To become an immortal being", "To find a cure for a curse", "To redeem a fallen hero", "To protect a powerful artifact", "To find a forgotten kingdom",
+            "To unite warring factions", "To destroy a powerful organization", "To find the truth about their past", "To overthrow a tyrannical ruler", "To bring balance to the world",
+            "To learn a lost spell", "To revive a lost love", "To become a famous hero", "To hide a terrible secret", "To find a missing person",
+            "To explore the unknown lands", "To find their true self", "To seek knowledge", "To find a peaceful life", "To protect the innocent",
+            "To destroy all magic", "To gain forbidden power", "To prove their worth", "To build a legendary item", "To repay a debt",
+            "To defeat their nemesis", "To stop a prophecy", "To become a god", "To find a legendary treasure", "To bring down a corrupt government",
+            "To discover the origin of a plague", "To end a generational feud", "To become the greatest artist", "To find a new purpose", "To restore a cursed land",
+            "To find a hidden city", "To rescue a captive", "To stop an invasion", "To find a new home for their people", "To expose a traitor",
+            "To destroy a rival", "To become a legend", "To live in anonymity", "To protect a valuable resource", "To find a way to escape a dimension"
+        ];
+        const talents = [
+            "Languages", "Animal Handling", "Shadows", "Smithing", "Tracking", "Luck", "Unarmed Combat",
+            "Disguise", "Alchemy", "Divination", "Acrobatics", "Archery", "Poison Crafting", "Insight", "Unbreakable Will",
+            "Oratory", "Sleight of Hand", "Survival", "Herbalism", "Weapon Forging", "Seafaring", "Mountaineering", "Negotiation", "Stealth", "Puzzles",
+            "History", "Tactics", "Riding", "Cooking", "Artistry", "Rhetoric", "Explosives", "Lockpicking", "Performance", "Medicine",
+            "Martial Arts", "Climbing", "Intimidation", "Persuasion", "Cartography", "Astronomy", "Botany", "Rune Casting", "Enchanting", "Fencing",
+            "Gambling", "First Aid", "Poetry", "Psychology", "Rituals", "Sewing", "Singing", "Stonecraft", "Swimming", "Teaching",
+            "Thievery", "Trapping", "Ventriloquism", "Whispering", "Woodworking", "Weaving", "Zoolgy", "Acrobatics", "Beast Mastery", "Calligraphy",
+            "Chemistry", "Dancing", "Deduction", "Diplomacy", "Driving", "Electronics", "Empathy", "Evasion", "Farming", "Forensics",
+            "Gardening", "Gemsmithing", "Gliding", "Hypnosis", "Intrusion", "Juggling", "Knitting", "Leadership", "Linguistics", "Logging"
+        ];
+        const flaws = [
+            "Deep-seated paranoia", "A crippling fear of magic", "Vows of silence", "Addicted to gambling", "Driven by hubris",
+            "Cannot tell a lie", "Overly trusting", "Obsessed with a rival", "Hates the sight of blood", "Short-sighted",
+            "Extremely gullible", "Fears being touched", "Secretly a coward", "Too proud to ask for help", "Clumsy and awkward",
+            "Cannot swim", "Afraid of heights", "Has a phobia of small spaces", "Compulsive liar", "Unnaturally weak", "Lacks a sense of humor",
+            "Terrible singing voice", "Addicted to a substance", "Believes in a ridiculous conspiracy", "Suffers from amnesia", "Speaks a forgotten language",
+            "Believes they are a god", "Has a very bad sense of direction", "Can only speak in riddles", "Cannot read", "Hates being dirty",
+            "Has a cursed object they cannot get rid of", "Easily distracted by shiny things", "Secretly a cannibal", "Has a cursed tattoo", "Afraid of their own power",
+            "A chronic kleptomaniac", "Always late", "Can't look people in the eye", "Is colorblind", "Has a crippling fear of fire",
+            "Cannot stop humming", "Breaks things without meaning to", "Always hungry", "Is haunted by a ghost", "Gives poor advice",
+            "Terribly impatient", "Constantly misremembers names", "Has a powerful allergy", "Is a somnambulist (sleepwalker)", "Can't say the letter 'r'"
+        ];
+        
+        // UI element selectors
+        const personalityEl = document.getElementById('personality');
+        const roleEl = document.getElementById('role');
+        const goalEl = document.getElementById('goal');
+        const talentEl = document.getElementById('talent');
+        const flawEl = document.getElementById('flaw');
+        const generateBtn = document.getElementById('generateBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const notification = document.getElementById('notification');
+        const personalityLockBtn = document.getElementById('personalityLock');
+        const roleLockBtn = document.getElementById('roleLock');
+        const goalLockBtn = document = document.getElementById('goalLock');
+        const talentLockBtn = document.getElementById('talentLock');
+        const flawLockBtn = document.getElementById('flawLock');
+        const personalityCard = document.getElementById('personalityCard');
+        const roleCard = document.getElementById('roleCard');
+        const goalCard = document.getElementById('goalCard');
+        const talentCard = document.getElementById('talentCard');
+        const flawCard = document.getElementById('flawCard');
+        const d20RollEl = document.getElementById('d20-roll');
+        
+        // Lock state variables
+        let isPersonalityLocked = false;
+        let isRoleLocked = false;
+        let isGoalLocked = false;
+        let isTalentLocked = false;
+        let isFlawLocked = false;
+        let isRolling = false;
+
+        // Sound setup with Tone.js
+        let synth;
+        const createSynth = () => {
+            if (synth) return;
+            synth = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: {
+                    attack: 0.005,
+                    decay: 0.1,
+                    sustain: 0.1,
+                    release: 0.5
+                }
+            }).toDestination();
+        };
+
+        let polySynth;
+        const createPolySynth = () => {
+            if (polySynth) return;
+            polySynth = new Tone.PolySynth(Tone.Synth).toDestination();
+        };
+
+        let monoSynth;
+        const createMonoSynth = () => {
+            if (monoSynth) return;
+            monoSynth = new Tone.MonoSynth({
+                oscillator: { type: "square" },
+                envelope: {
+                    attack: 0.05,
+                    decay: 0.2,
+                    sustain: 0.3,
+                    release: 1
+                },
+                filter: {
+                    Q: 2,
+                    type: "lowpass",
+                    frequency: 200
+                },
+                filterEnvelope: {
+                    attack: 0.001,
+                    decay: 0.5,
+                    sustain: 0.5,
+                    release: 0.5,
+                    baseFrequency: 200,
+                    octaves: 7
+                }
+            }).toDestination();
+        };
+        
+        const playSound = (note, time) => {
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+            createSynth();
+            if (synth) {
+                synth.triggerAttackRelease(note, "8n", time);
+            }
+        };
+
+        function getRandomWord(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function generateAndAnimateWord(element, wordList) {
+            element.classList.remove('animate-pop');
+            void element.offsetWidth;
+            element.classList.add('animate-pop');
+            element.textContent = getRandomWord(wordList);
+        }
+
+        // Functions for single-word generation
+        function generatePersonalityWord() {
+            if (Tone.context.state !== 'running') Tone.start();
+            playSound("C4", Tone.now());
+            generateAndAnimateWord(personalityEl, personalities);
+        }
+
+        function generateRoleWord() {
+            if (Tone.context.state !== 'running') Tone.start();
+            playSound("E4", Tone.now());
+            generateAndAnimateWord(roleEl, roles);
+        }
+
+        function generateGoalWord() {
+            if (Tone.context.state !== 'running') Tone.start();
+            playSound("G4", Tone.now());
+            generateAndAnimateWord(goalEl, goals);
+        }
+        
+        function generateTalentWord() {
+            if (Tone.context.state !== 'running') Tone.start();
+            playSound("C5", Tone.now());
+            generateAndAnimateWord(talentEl, talents);
+        }
+        
+        function generateFlawWord() {
+            if (Tone.context.state !== 'running') Tone.start();
+            playSound("E5", Tone.now());
+            generateAndAnimateWord(flawEl, flaws);
+        }
+
+        // The main function to generate all words, respecting locks
+        function generateAllWords() {
+            const now = Tone.now();
+            if (!isPersonalityLocked) {
+                playSound("C4", now);
+                generateAndAnimateWord(personalityEl, personalities);
+            }
+            if (!isRoleLocked) {
+                playSound("E4", now + 0.1);
+                generateAndAnimateWord(roleEl, roles);
+            }
+            if (!isGoalLocked) {
+                playSound("G4", now + 0.2);
+                generateAndAnimateWord(goalEl, goals);
+            }
+            if (!isTalentLocked) {
+                playSound("C5", now + 0.3);
+                generateAndAnimateWord(talentEl, talents);
+            }
+            if (!isFlawLocked) {
+                playSound("E5", now + 0.4);
+                generateAndAnimateWord(flawEl, flaws);
+            }
+        }
+
+        function copyWords() {
+            const words = `${personalityEl.textContent}, ${roleEl.textContent}, ${goalEl.textContent}, ${talentEl.textContent}, ${flawEl.textContent}`;
+            const tempTextarea = document.createElement('textarea');
+            tempTextarea.value = words;
+            document.body.appendChild(tempTextarea);
+            tempTextarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextarea);
+
+            notification.classList.remove('hidden');
+            notification.classList.add('opacity-100');
+            setTimeout(() => {
+                notification.classList.remove('opacity-100');
+                setTimeout(() => notification.classList.add('hidden'), 300);
+            }, 2000);
+        }
+
+        function toggleLock(type) {
+            let state, lockBtn;
+            if (type === 'personality') {
+                isPersonalityLocked = !isPersonalityLocked;
+                state = isPersonalityLocked;
+                lockBtn = personalityLockBtn;
+            } else if (type === 'role') {
+                isRoleLocked = !isRoleLocked;
+                state = isRoleLocked;
+                lockBtn = roleLockBtn;
+            } else if (type === 'goal') {
+                isGoalLocked = !isGoalLocked;
+                state = isGoalLocked;
+                lockBtn = goalLockBtn;
+            } else if (type === 'talent') {
+                isTalentLocked = !isTalentLocked;
+                state = isTalentLocked;
+                lockBtn = talentLockBtn;
+            } else if (type === 'flaw') {
+                isFlawLocked = !isFlawLocked;
+                state = isFlawLocked;
+                lockBtn = flawLockBtn;
+            }
+
+            if (state) {
+                lockBtn.classList.add('locked');
+                lockBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2h-1V6a4 4 0 00-4-4z" />
+                                    </svg>`;
+            } else {
+                lockBtn.classList.remove('locked');
+                lockBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd" />
+                                     </svg>`;
+            }
+        }
+        
+        // Function to roll the D20 with a slot-machine-like animation
+        function rollD20() {
+            if (isRolling) return;
+            isRolling = true;
+            
+            // Start Tone.js if not running for sound
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+
+            const rollDuration = 500; // ms
+            let interval = setInterval(() => {
+                // Generate a random number during the "roll"
+                d20RollEl.textContent = Math.floor(Math.random() * 20) + 1;
+            }, 50); // Update every 50ms
+
+            setTimeout(() => {
+                clearInterval(interval);
+                const rollResult = Math.floor(Math.random() * 20) + 1;
+                d20RollEl.textContent = rollResult;
+                isRolling = false;
+
+                if (rollResult === 20) {
+                    createPolySynth();
+                    if (polySynth) {
+                        // Play a triumphant chord for a shorter duration
+                        polySynth.triggerAttackRelease(["C5", "E5", "G5"], "8n");
+                    }
+                } else if (rollResult === 1) {
+                    createMonoSynth();
+                    if (monoSynth) {
+                        // Play a low, ominous tone for a shorter duration
+                         monoSynth.triggerAttackRelease("C2", "8n");
+                    }
+                }
+            }, rollDuration);
+        }
+
+        // Attach event listeners
+        personalityCard.addEventListener('click', generatePersonalityWord);
+        roleCard.addEventListener('click', generateRoleWord);
+        goalCard.addEventListener('click', generateGoalWord);
+        talentCard.addEventListener('click', generateTalentWord);
+        flawCard.addEventListener('click', generateFlawWord);
+
+        // Use event.stopPropagation() on the lock button so it doesn't trigger the parent's click event
+        personalityLockBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            toggleLock('personality');
+        });
+        roleLockBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            toggleLock('role');
+        });
+        goalLockBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            toggleLock('goal');
+        });
+        talentLockBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            toggleLock('talent');
+        });
+        flawLockBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            toggleLock('flaw');
+        });
+
+        generateBtn.addEventListener('click', generateAllWords);
+        copyBtn.addEventListener('click', copyWords);
+        d20RollEl.addEventListener('click', rollD20);
+
+        // Initial generation on page load
+        window.addEventListener('load', () => {
+            generateAllWords();
+            rollD20();
+        });
+    </script>
+</body>
+</html>
