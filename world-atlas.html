@@ -561,76 +561,69 @@ function hitToImage(e){
 }
 
 // =========================================================================
-//  LOAD WORLD (Your original function, left untouched)
+//  LOAD WORLD (Modified to accept both manual uploads and auto-loads)
 // =========================================================================
 function loadWorld(e){
-  const file=e.target.files[0]; if(!file) return;
-  const r=new FileReader();
-  r.onload=ev=>{
-    try{
-      const d=JSON.parse(ev.target.result);
-      if(!d.world||!d.world.maps) throw new Error();
-      world=d.world;
-      const rootId=world.rootMapId||Object.keys(world.maps)[0]||null;
-      navStack=rootId?[rootId]:[];
-      currentMapId=rootId;
-      hoveredHs=null;
-      maskAlpha={}; bakedOverlay={};
-      renderBreadcrumb();
-      const m=currentMap();
-      if(m) loadMapImage(m.imageData,true); else showEmpty();
-    }catch(err){alert('Error: could not read world file.');}
-  };
-  r.readAsText(file); e.target.value='';
+  // Check if this is a manual upload or an automatic injection
+  const isAutoData = e && e.autoData;
+  let parsedData = null;
+
+  if (isAutoData) {
+    parsedData = e.autoData;
+  } else {
+    const file = e.target.files[0]; 
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        processWorldData(d);
+      } catch(err) { alert('Error: could not read world file.'); }
+    };
+    r.readAsText(file); 
+    e.target.value = '';
+    return;
+  }
+
+  if (parsedData) {
+    processWorldData(parsedData);
+  }
 }
 
-// =========================================================================
-//  INITIALIZATION & AUTOMATIC GITHUB FETCH
-// =========================================================================
-
-// Run your original initialization engine first
-init();
-
-// Immediately trigger the automatic repository fetch
-console.log("Attempting to auto-load map.json from repository root...");
-
-fetch('map.json')
-  .then(response => {
-    if (!response.ok) {
-      throw new Error("HTTP Error " + response.status + " - Check if map.json exists and is named correctly.");
-    }
-    return response.json();
-  })
-  .then(d => {
-    // Structural integrity check matching your loadWorld validation
-    if (!d || !d.world || !d.world.maps) {
-      throw new Error("The map.json file loaded, but the internal data structure is invalid or missing the 'world' object.");
-    }
-    
-    // Inject the data directly into the application state
+// Helper function to handle the actual rendering state safely
+function processWorldData(d) {
+  try {
+    if (!d.world || !d.world.maps) throw new Error();
     world = d.world;
     const rootId = world.rootMapId || Object.keys(world.maps)[0] || null;
     navStack = rootId ? [rootId] : [];
     currentMapId = rootId;
     hoveredHs = null;
-    maskAlpha = {}; 
-    bakedOverlay = {};
-    
-    // Fire the visual rendering sequences
+    maskAlpha = {}; bakedOverlay = {};
     renderBreadcrumb();
     const m = currentMap();
-    if (m) {
-      loadMapImage(m.imageData, true);
-      console.log("Success! Map data parsed and images projected.");
-    } else {
-      showEmpty();
-      console.warn("World data loaded, but no maps were found inside currentMap().");
-    }
+    if (m) loadMapImage(m.imageData, true); else showEmpty();
+  } catch(err) {
+    console.error("Data processing failed:", err);
+  }
+}
+
+// Run original setup
+init();
+
+// Automatically grab map.json and feed it directly into the engine above
+fetch('map.json')
+  .then(res => {
+    if (!res.ok) throw new Error("Could not find map.json in your GitHub repository folder.");
+    return res.json();
+  })
+  .then(jsonData => {
+    console.log("Map data retrieved successfully. Injecting into engine...");
+    // Fake the event object and pass the data directly in
+    loadWorld({ autoData: jsonData });
   })
   .catch(err => {
-    // This will pop up on your screen to tell us exactly what went wrong!
-    console.error("Auto-load routine failed:", err.message);
-    alert("Map Auto-Load Diagnostic:\n" + err.message + "\n\n(Falling back to manual file upload mode.)");
+    console.warn("Auto-load bypassed. Ready for manual import:", err.message);
   });
 </script>
 </body>
