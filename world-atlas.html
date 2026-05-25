@@ -585,6 +585,38 @@ function loadWorld(e){
 }
 
 init();
+
+// ══════════════════════════════
+// NEW AUTOMATIC FETCH LOGIC
+// ══════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  fetch('map.json')
+    .then(response => {
+      if (!response.ok) throw new Error("Could not locate default map.json file.");
+      return response.json();
+    })
+    .then(d => {
+      // This mimics the exact data parsing structure from your loadWorld function
+      if (!d.world || !d.world.maps) throw new Error("Invalid world file structure.");
+      
+      world = d.world;
+      const rootId = world.rootMapId || Object.keys(world.maps)[0] || null;
+      navStack = rootId ? [rootId] : [];
+      currentMapId = rootId;
+      hoveredHs = null;
+      maskAlpha = {}; bakedOverlay = {};
+      
+      renderBreadcrumb();
+      const m = currentMap();
+      if (m) loadMapImage(m.imageData, true); else showEmpty();
+      
+      console.log("Campaign map synchronized perfectly from GitHub repository.");
+    })
+    .catch(err => {
+      console.warn("Auto-load skipped or failed:", err.message);
+      // Fails silently in console so the app still functions manually if map.json is missing
+    });
+});
 </script>
 </body>
 </html>
